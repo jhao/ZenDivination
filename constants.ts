@@ -58,7 +58,6 @@ export const TRIGRAMS: Record<number, Record<Language, { name: string, element: 
   }
 };
 
-// Hexagram Names mapped by ID: (UpperTrigram << 3) | LowerTrigram
 export const HEXAGRAM_NAMES: Record<number, Record<Language, string>> = {
   0: { 'zh-CN': '坤为地', 'zh-TW': '坤為地', 'en': 'Kun (The Receptive)', 'ja': '坤為地' },
   1: { 'zh-CN': '地雷复', 'zh-TW': '地雷復', 'en': 'Fu (Return)', 'ja': '地雷復' },
@@ -159,7 +158,6 @@ export const UI_TEXT: Record<Language, Record<string, string>> = {
     ai_disclaimer: 'AI解读仅供参考，命运掌握在自己手中。',
     switch_lang: '语言',
     switch_mode: '模式',
-    // New Sections
     sec_status: '【当前状态】',
     sec_diagnosis: '【六亲诊断】',
     sec_contradiction: '【主要矛盾】',
@@ -173,15 +171,23 @@ export const UI_TEXT: Record<Language, Record<string, string>> = {
     rel_official: '官鬼(克我)',
     rel_wealth: '妻财(我克)',
     rel_brother: '兄弟(同我)',
-    // History
     history_title: '历史记录',
     history_empty: '暂无记录',
     history_clear: '清空记录',
     history_view: '查看详情',
     history_del_confirm: '确定清空所有记录吗？',
-    // New Button
     btn_deep_interpret: 'AI 深度详解',
     question_display: '【所问之事】',
+    // Settings specific
+    settings_title: '设置',
+    settings_provider: '模型服务商',
+    settings_apikey: 'API Key',
+    settings_apikey_placeholder: '输入您的 API Key',
+    settings_save: '保存配置',
+    settings_close: '关闭',
+    provider_gemini: 'Google Gemini',
+    provider_deepseek: 'DeepSeek (R1/V3)',
+    key_missing_alert: '请先在设置中配置 API Key'
   },
   'zh-TW': {
     title: '六爻神算',
@@ -235,6 +241,15 @@ export const UI_TEXT: Record<Language, Record<string, string>> = {
     history_del_confirm: '確定清空所有記錄嗎？',
     btn_deep_interpret: 'AI 深度詳解',
     question_display: '【所問之事】',
+    settings_title: '設置',
+    settings_provider: '模型服務商',
+    settings_apikey: 'API Key',
+    settings_apikey_placeholder: '輸入您的 API Key',
+    settings_save: '保存配置',
+    settings_close: '關閉',
+    provider_gemini: 'Google Gemini',
+    provider_deepseek: 'DeepSeek (R1/V3)',
+    key_missing_alert: '請先在設置中配置 API Key'
   },
   'en': {
     title: 'Zen Divination',
@@ -288,6 +303,15 @@ export const UI_TEXT: Record<Language, Record<string, string>> = {
     history_del_confirm: 'Are you sure you want to clear all history?',
     btn_deep_interpret: 'Consult AI for Detail',
     question_display: '[ Question ]',
+    settings_title: 'Settings',
+    settings_provider: 'AI Provider',
+    settings_apikey: 'API Key',
+    settings_apikey_placeholder: 'Enter your API Key',
+    settings_save: 'Save Config',
+    settings_close: 'Close',
+    provider_gemini: 'Google Gemini',
+    provider_deepseek: 'DeepSeek (R1/V3)',
+    key_missing_alert: 'Please configure API Key in settings first'
   },
   'ja': {
     title: '六爻神算',
@@ -341,5 +365,14 @@ export const UI_TEXT: Record<Language, Record<string, string>> = {
     history_del_confirm: 'すべての履歴を消去しますか？',
     btn_deep_interpret: 'AIで詳しく分析',
     question_display: '【質問内容】',
+    settings_title: '設定',
+    settings_provider: 'AIプロバイダー',
+    settings_apikey: 'APIキー',
+    settings_apikey_placeholder: 'APIキーを入力',
+    settings_save: '保存',
+    settings_close: '閉じる',
+    provider_gemini: 'Google Gemini',
+    provider_deepseek: 'DeepSeek (R1/V3)',
+    key_missing_alert: '設定でAPIキーを入力してください'
   }
 };

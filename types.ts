@@ -34,6 +34,7 @@ export interface GeminiResponse {
 
 export type Language = 'zh-CN' | 'zh-TW' | 'en' | 'ja';
 export type DivinationMode = 'AI' | 'LOCAL';
+export type ModelProvider = 'GEMINI' | 'DEEPSEEK';
 
 export interface HistoryRecord {
   id: string;

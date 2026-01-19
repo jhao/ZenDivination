@@ -1,18 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
-import { HexagramData, LineType, Language } from "../types";
+import { HexagramData, LineType, Language, ModelProvider } from "../types";
 
-export const interpretHexagram = async (
-  hexagram: HexagramData,
-  question: string,
-  language: Language
-): Promise<string> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API Key missing");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
-
+// Helper to generate the prompt (shared between providers)
+const generatePrompt = (hexagram: HexagramData, question: string, language: Language): string => {
   let structureDesc = "";
   hexagram.lines.forEach((line, index) => {
     const position = index + 1;
@@ -36,7 +26,7 @@ export const interpretHexagram = async (
     default: langInstruction = "Please respond in Simplified Chinese."; break;
   }
 
-  const prompt = `
+  return `
     You are an expert I Ching (Book of Changes) master with deep knowledge of the Liu Yao (Six Lines/Six Relations) method (六爻纳甲).
     
     ${langInstruction}
@@ -71,19 +61,82 @@ export const interpretHexagram = async (
     
     Tone: Mystical yet clear, supportive, and highly logical based on traditional rules.
   `;
+};
+
+// Gemini Implementation
+const callGemini = async (apiKey: string, prompt: string): Promise<string> => {
+    const ai = new GoogleGenAI({ apiKey });
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.0-flash", // Updated to a stable/fast model or keep user preference
+            contents: prompt,
+            config: {
+                thinkingConfig: { thinkingBudget: 0 }
+            }
+        });
+        return response.text || "No response from Gemini.";
+    } catch (e) {
+        console.error("Gemini Call Failed", e);
+        throw e;
+    }
+};
+
+// DeepSeek Implementation
+const callDeepSeek = async (apiKey: string, prompt: string): Promise<string> => {
+    try {
+        const response = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: 'deepseek-chat',
+                messages: [
+                    { role: 'system', content: 'You are a helpful assistant.' }, // System prompt is implicitly in the user prompt for I Ching context, or we can move it.
+                    { role: 'user', content: prompt }
+                ],
+                stream: false
+            })
+        });
+
+        if (!response.ok) {
+            const err = await response.text();
+            throw new Error(`DeepSeek API Error: ${response.status} - ${err}`);
+        }
+
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || "No response from DeepSeek.";
+    } catch (e) {
+        console.error("DeepSeek Call Failed", e);
+        throw e;
+    }
+};
+
+export const interpretHexagram = async (
+  hexagram: HexagramData,
+  question: string,
+  language: Language,
+  provider: ModelProvider = 'GEMINI',
+  apiKey?: string
+): Promise<string> => {
+  // Fallback to process.env.API_KEY if no key provided and using Gemini (for backward compat or dev)
+  const finalApiKey = apiKey || (provider === 'GEMINI' ? process.env.API_KEY : '');
+  
+  if (!finalApiKey) {
+    throw new Error("API Key is required.");
+  }
+
+  const prompt = generatePrompt(hexagram, question, language);
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        thinkingConfig: { thinkingBudget: 0 }
+      if (provider === 'DEEPSEEK') {
+          return await callDeepSeek(finalApiKey, prompt);
+      } else {
+          return await callGemini(finalApiKey, prompt);
       }
-    });
-
-    return response.text || "Sorry, the spirits are quiet right now (No response from AI).";
   } catch (error) {
-    console.error("Gemini API Error:", error);
-    return "An error occurred while consulting the oracle. Please try again later.";
+    console.error(`${provider} API Error:`, error);
+    return `Error consulting ${provider}: ${(error as Error).message}`;
   }
 };

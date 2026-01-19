@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, RotateCcw, Sparkles, Loader2, Moon, Globe, Cpu, Settings2, Clock, Trash2, ChevronRight, BrainCircuit } from 'lucide-react';
+import { ArrowRight, RotateCcw, Sparkles, Loader2, Moon, Globe, Cpu, Settings, Clock, Trash2, ChevronRight, BrainCircuit, X, Key, Save } from 'lucide-react';
 
-import { AppStep, HexagramData, LineType, CoinSide, Language, DivinationMode, HistoryRecord } from './types';
+import { AppStep, HexagramData, LineType, CoinSide, Language, DivinationMode, HistoryRecord, ModelProvider } from './types';
 import { castCoins, getHexagramStructure } from './utils/divination';
 import { interpretHexagram } from './services/geminiService';
 import { interpretHexagramLocal } from './services/localService';
@@ -22,6 +22,8 @@ const App: React.FC = () => {
   // Settings State
   const [language, setLanguage] = useState<Language>('zh-CN');
   const [mode, setMode] = useState<DivinationMode>('LOCAL');
+  const [provider, setProvider] = useState<ModelProvider>('GEMINI');
+  const [apiKey, setApiKey] = useState<string>('');
   const [showSettings, setShowSettings] = useState(false);
 
   // History State
@@ -32,6 +34,30 @@ const App: React.FC = () => {
 
   // Helper for text
   const t = UI_TEXT[language];
+
+  // Load Settings from LocalStorage on mount
+  useEffect(() => {
+    const savedLang = localStorage.getItem('zen_lang') as Language;
+    if (savedLang) setLanguage(savedLang);
+    
+    const savedMode = localStorage.getItem('zen_mode') as DivinationMode;
+    if (savedMode) setMode(savedMode);
+
+    const savedProvider = localStorage.getItem('zen_provider') as ModelProvider;
+    if (savedProvider) setProvider(savedProvider);
+
+    const savedKey = localStorage.getItem('zen_apikey');
+    if (savedKey) setApiKey(savedKey);
+  }, []);
+
+  // Save Settings to LocalStorage
+  const saveSettings = () => {
+    localStorage.setItem('zen_lang', language);
+    localStorage.setItem('zen_mode', mode);
+    localStorage.setItem('zen_provider', provider);
+    localStorage.setItem('zen_apikey', apiKey);
+    setShowSettings(false);
+  };
 
   // Refresh history whenever entering history step
   useEffect(() => {
@@ -69,18 +95,24 @@ const App: React.FC = () => {
   };
 
   const handleConsultOracle = async () => {
+    if (mode === 'AI' && !apiKey && !process.env.API_KEY) {
+        alert(t.key_missing_alert);
+        setShowSettings(true);
+        return;
+    }
+
     setStep(AppStep.Analyzing);
     setResultSource(mode);
     
     let result = "";
     try {
       if (mode === 'AI') {
-        result = await interpretHexagram(hexagram, question, language);
+        result = await interpretHexagram(hexagram, question, language, provider, apiKey);
       } else {
         result = await interpretHexagramLocal(hexagram, language);
       }
     } catch (e) {
-      result = "Error consulting oracle.";
+      result = `Error: ${(e as Error).message}`;
     }
 
     setInterpretation(result);
@@ -100,15 +132,21 @@ const App: React.FC = () => {
   };
   
   const handleAiDeepDive = async () => {
+    if (!apiKey && !process.env.API_KEY) {
+        alert(t.key_missing_alert);
+        setShowSettings(true);
+        return;
+    }
+
     setStep(AppStep.Analyzing);
     // Explicitly using AI here
     setResultSource('AI');
     
     let result = "";
     try {
-        result = await interpretHexagram(hexagram, question, language);
+        result = await interpretHexagram(hexagram, question, language, provider, apiKey);
     } catch(e) {
-        result = "Error consulting AI.";
+        result = `Error: ${(e as Error).message}`;
     }
     
     setInterpretation(result);
@@ -152,36 +190,6 @@ const App: React.FC = () => {
   };
 
   // --- Components ---
-
-  const LanguageSelector = () => (
-    <div className="flex gap-2 p-2 bg-gray-800 rounded-lg mt-2">
-       {(['zh-CN', 'zh-TW', 'en', 'ja'] as Language[]).map(lang => (
-         <button 
-           key={lang}
-           onClick={() => setLanguage(lang)}
-           className={`px-3 py-1 rounded text-sm ${language === lang ? 'bg-yellow-700 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
-         >
-           {lang === 'zh-CN' ? '简' : lang === 'zh-TW' ? '繁' : lang === 'en' ? 'EN' : '日'}
-         </button>
-       ))}
-    </div>
-  );
-
-  const ModeSelector = () => (
-    <div className="flex gap-2 p-2 bg-gray-800 rounded-lg mt-2">
-       {(['AI', 'LOCAL'] as DivinationMode[]).map(m => (
-         <button 
-           key={m}
-           onClick={() => setMode(m)}
-           className={`px-3 py-1 rounded text-sm flex-1 ${mode === m ? 'bg-indigo-700 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
-         >
-           {m === 'AI' ? t.mode_ai : t.mode_local}
-         </button>
-       ))}
-    </div>
-  );
-
-  // --- Views ---
 
   const renderWelcome = () => (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4 animate-fade-in-up">
@@ -420,7 +428,7 @@ const App: React.FC = () => {
         
         {/* Settings & History */}
         <div className="flex items-center gap-4">
-             {/* History Button (Desktop & Mobile) */}
+             {/* History Button */}
              <button 
                 onClick={() => setStep(AppStep.History)}
                 className={`p-2 rounded-full hover:bg-gray-800 transition-colors ${step === AppStep.History ? 'text-yellow-500 bg-gray-800' : 'text-gray-400'}`}
@@ -428,54 +436,102 @@ const App: React.FC = () => {
                 <Clock size={20} />
              </button>
 
-             {/* Desktop Quick Settings */}
-             <div className="hidden md:flex gap-4">
-                 <div className="flex items-center gap-2 bg-gray-800/50 px-3 py-1 rounded-full border border-gray-700">
-                    <Globe size={14} className="text-gray-400" />
-                    <select 
-                      value={language} 
-                      onChange={(e) => setLanguage(e.target.value as Language)}
-                      className="bg-transparent text-sm text-gray-300 outline-none border-none cursor-pointer"
-                    >
-                      <option value="zh-CN">简体</option>
-                      <option value="zh-TW">繁體</option>
-                      <option value="en">English</option>
-                      <option value="ja">日本語</option>
-                    </select>
-                 </div>
-                 <div className="flex items-center gap-2 bg-gray-800/50 px-3 py-1 rounded-full border border-gray-700">
-                    <Cpu size={14} className="text-gray-400" />
-                    <select 
-                      value={mode} 
-                      onChange={(e) => setMode(e.target.value as DivinationMode)}
-                      className="bg-transparent text-sm text-gray-300 outline-none border-none cursor-pointer"
-                    >
-                      <option value="AI">{t.mode_ai}</option>
-                      <option value="LOCAL">{t.mode_local}</option>
-                    </select>
-                 </div>
-             </div>
-
-             {/* Mobile Settings Toggle */}
+             {/* Settings Toggle */}
              <button 
-                onClick={() => setShowSettings(!showSettings)}
-                className="md:hidden p-2 text-gray-400 hover:text-white"
+                onClick={() => setShowSettings(true)}
+                className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors"
              >
-                <Settings2 size={20} />
+                <Settings size={20} />
              </button>
         </div>
       </nav>
 
-      {/* Mobile Settings Panel */}
+      {/* Settings Modal (Replaces previous simplified panels) */}
       {showSettings && (
-          <div className="md:hidden relative z-20 bg-gray-900 border-b border-gray-800 p-4 animate-slide-down">
-             <div className="mb-4">
-                <label className="text-xs text-gray-500 uppercase font-bold mb-2 block">{t.switch_lang}</label>
-                <LanguageSelector />
-             </div>
-             <div>
-                <label className="text-xs text-gray-500 uppercase font-bold mb-2 block">{t.switch_mode}</label>
-                <ModeSelector />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowSettings(false)}></div>
+             <div className="relative bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-serif text-yellow-500 flex items-center gap-2">
+                        <Settings size={20} /> {t.settings_title}
+                    </h3>
+                    <button onClick={() => setShowSettings(false)} className="text-gray-400 hover:text-white">
+                        <X size={20} />
+                    </button>
+                </div>
+
+                <div className="space-y-6">
+                    {/* Language */}
+                    <div>
+                        <label className="text-xs text-gray-500 uppercase font-bold mb-2 block">{t.switch_lang}</label>
+                        <div className="flex gap-2">
+                           {(['zh-CN', 'zh-TW', 'en', 'ja'] as Language[]).map(lang => (
+                             <button 
+                               key={lang}
+                               onClick={() => setLanguage(lang)}
+                               className={`px-3 py-2 rounded-lg text-sm flex-1 border border-gray-700 ${language === lang ? 'bg-yellow-900/50 text-white border-yellow-700' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                             >
+                               {lang === 'zh-CN' ? '简体' : lang === 'zh-TW' ? '繁體' : lang === 'en' ? 'EN' : '日本語'}
+                             </button>
+                           ))}
+                        </div>
+                    </div>
+
+                    {/* Mode */}
+                    <div>
+                        <label className="text-xs text-gray-500 uppercase font-bold mb-2 block">{t.switch_mode}</label>
+                        <div className="flex gap-2">
+                           {(['LOCAL', 'AI'] as DivinationMode[]).map(m => (
+                             <button 
+                               key={m}
+                               onClick={() => setMode(m)}
+                               className={`px-3 py-2 rounded-lg text-sm flex-1 border border-gray-700 flex items-center justify-center gap-2 ${mode === m ? 'bg-indigo-900/50 text-white border-indigo-700' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                             >
+                               {m === 'AI' ? <Sparkles size={14}/> : <Cpu size={14}/>}
+                               {m === 'AI' ? t.mode_ai : t.mode_local}
+                             </button>
+                           ))}
+                        </div>
+                    </div>
+
+                    {/* AI Provider Settings (Only visible/relevant if AI is selected or generally for config) */}
+                    <div className="pt-4 border-t border-gray-800">
+                        <label className="text-xs text-gray-500 uppercase font-bold mb-2 block">{t.settings_provider}</label>
+                        <div className="flex gap-2 mb-4">
+                           {(['GEMINI', 'DEEPSEEK'] as ModelProvider[]).map(p => (
+                             <button 
+                               key={p}
+                               onClick={() => setProvider(p)}
+                               className={`px-3 py-2 rounded-lg text-sm flex-1 border border-gray-700 ${provider === p ? 'bg-blue-900/50 text-white border-blue-700' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                             >
+                               {p === 'GEMINI' ? t.provider_gemini : t.provider_deepseek}
+                             </button>
+                           ))}
+                        </div>
+
+                        <label className="text-xs text-gray-500 uppercase font-bold mb-2 block">{t.settings_apikey}</label>
+                        <div className="relative">
+                            <input 
+                                type="password" 
+                                value={apiKey}
+                                onChange={(e) => setApiKey(e.target.value)}
+                                placeholder={process.env.API_KEY ? "Using Default Env Key" : t.settings_apikey_placeholder}
+                                className="w-full bg-gray-950 border border-gray-700 rounded-lg py-2 pl-9 pr-3 text-sm text-gray-200 focus:outline-none focus:border-yellow-600 focus:ring-1 focus:ring-yellow-600"
+                            />
+                            <Key size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                        </div>
+                        <p className="text-xs text-gray-600 mt-2">
+                            {provider === 'GEMINI' ? 'Get key from Google AI Studio' : 'Get key from DeepSeek Platform'}
+                        </p>
+                    </div>
+
+                    <button 
+                        onClick={saveSettings}
+                        className="w-full py-3 bg-yellow-700 hover:bg-yellow-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 mt-4"
+                    >
+                        <Save size={18} /> {t.settings_save}
+                    </button>
+                </div>
              </div>
           </div>
       )}
